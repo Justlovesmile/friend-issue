@@ -1,0 +1,114 @@
+# 文章更新
+name: update-friends-links
+
+on:
+  # release:
+  #   types: [published]
+  # push:
+  #   tags:
+  #     - 'v*'
+  #  branches:
+  #    - master
+  issues:
+  repository_dispatch:
+  watch:
+    types: [started]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [14.x]
+    if: github.event.repository.owner.id == github.event.sender.id # 自己点的 start
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@master
+
+      # from: https://github.com/actions/setup-node
+      - name: 设置Node.js
+        uses: actions/setup-node@master
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: 安装依赖 #安装requests
+        run: |
+          yarn install
+
+      - name: 缓存依赖
+        uses: actions/cache@v2
+        id: cache-dependencies
+        with:
+          path: node_modules
+          key: ${{runner.OS}}-${{hashFiles('**/yarn.lock')}}
+
+      - name: 运行主程序
+        run: |
+          mkdir dist
+          node index.js
+        env:
+          NPM_NAME: ${{ secrets.NPM_NAME }}
+          REGKEYS: ${{ secrets.REGKEYS }}
+
+          GITEE_ACCESS_TOKEN: ${{ secrets.GITEE_ACCESS_TOKEN }}
+          GITEE_OWNER: ${{ secrets.GITEE_OWNER }}
+          GITEE_REPO: ${{ secrets.GITEE_REPO }}
+          GITEE_STATE: ${{ secrets.GITEE_STATE }}
+          GITEE_SORT: ${{ secrets.GITEE_SORT }}
+          GITEE_DIRECTION: ${{ secrets.GITEE_DIRECTION }}
+          GITEE_REGKEYS: ${{ secrets.GITEE_REGKEYS }}
+
+          GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          GH_OWNER: ${{ secrets.GH_OWNER }}
+          GH_REPO: ${{ secrets.GH_REPO }}
+          GH_STATE: ${{ secrets.GH_STATE }}
+          GH_SORT: ${{ secrets.GH_SORT }}
+          GH_DIRECTION: ${{ secrets.GH_DIRECTION }}
+          GH_REGKEYS: ${{ secrets.GH_REGKEYS }}
+
+      - name: 提交Commit #更新日志到GitHub仓库
+        run: |
+          git config --global user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git config --global user.name github-actions[bot]
+          cd dist
+          ls
+          git init
+          git add .
+          git commit -m "Add changes"
+
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: friend
+          force: true
+          directory: dist
+
+      # - name: 读取生成时间戳作为版本号
+      #   id: version
+      #   uses: ashley-taylor/read-json-property-action@v1.0
+      #   with:
+      #     path: ./dist/friend.json
+      #     property: date
+
+      # - name: 创建GitHub Release
+      #   id: create_release
+      #   uses: actions/create-release@latest
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     tag_name: ${{ steps.version.outputs.value }}
+      #     release_name: ${{steps.version.outputs.value}}
+      #     body: 更新友链-${{steps.version.outputs.value}}
+      #     draft: false
+      #     prerelease: false
+
+      - name: 发布npm包
+        if: env.NPM_TOKEN && env.NPM_NAME
+        run: |
+          cd dist
+          npm config set //registry.npmjs.org/:_authToken=$NPM_TOKEN
+          npm publish
+        env:
+          NPM_TOKEN: ${{secrets.NPM_TOKEN}}
+          NPM_NAME: ${{ secrets.NPM_NAME }}

@@ -1,0 +1,16 @@
+# This file is a template, and might need editing before it works on your project.
+# Official framework image. Look for the different tagged releases at:
+# https://hub.docker.com/r/library/node/tags/
+image: node:14-alpine
+
+build:
+  script:
+    - npm install
+    - mkdir dist
+    - node index.js
+    - cd dist
+    - npm config set //registry.npmjs.org/:_authToken=${NPM_TOKEN}
+    - npm publish
+  cache:
+    paths:
+      - node_modules/
